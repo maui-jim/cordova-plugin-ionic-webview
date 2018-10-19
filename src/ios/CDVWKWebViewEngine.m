@@ -32,7 +32,7 @@
 #define CDV_BRIDGE_NAME @"cordova"
 #define CDV_IONIC_STOP_SCROLL @"stopScroll"
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if (__IPHONE_OS_VERSION_MAX_ALLOWED >= 110000 && __IPHONE_OS_VERSION_MAX_ALLOWED < 120000) || (__IPAD_OS_VERSION_MAX_ALLOWED >= 110000 && __IPAD_OS_VERSION_MAX_ALLOWED < 120000)
 
 @implementation UIScrollView (BugIOS11)
 
@@ -263,7 +263,7 @@
     [self.engineWebView removeFromSuperview];
     WKWebView* wkWebView = [[WKWebView alloc] initWithFrame:self.frame configuration:configuration];
 
-    #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+    #if (__IPHONE_OS_VERSION_MAX_ALLOWED >= 110000 && __IPHONE_OS_VERSION_MAX_ALLOWED < 120000) || (__IPAD_OS_VERSION_MAX_ALLOWED >= 110000 && __IPAD_OS_VERSION_MAX_ALLOWED < 120000)
     if (@available(iOS 11.0, *)) {
       [wkWebView.scrollView setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
     }
