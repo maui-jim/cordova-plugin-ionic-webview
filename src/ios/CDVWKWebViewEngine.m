@@ -35,7 +35,7 @@
 #define LAST_BINARY_VERSION_CODE @"lastBinaryVersionCode"
 #define LAST_BINARY_VERSION_NAME @"lastBinaryVersionName"
 
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if (__IPHONE_OS_VERSION_MAX_ALLOWED >= 110000 && __IPHONE_OS_VERSION_MAX_ALLOWED < 120000) || (__IPAD_OS_VERSION_MAX_ALLOWED >= 110000 && __IPAD_OS_VERSION_MAX_ALLOWED < 120000)
 
 @implementation UIScrollView (BugIOS11)
 
@@ -309,7 +309,7 @@
     [self.engineWebView removeFromSuperview];
     WKWebView* wkWebView = [[WKWebView alloc] initWithFrame:self.frame configuration:configuration];
 
-    #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+    #if (__IPHONE_OS_VERSION_MAX_ALLOWED >= 110000 && __IPHONE_OS_VERSION_MAX_ALLOWED < 120000) || (__IPAD_OS_VERSION_MAX_ALLOWED >= 110000 && __IPAD_OS_VERSION_MAX_ALLOWED < 120000)
     if (@available(iOS 11.0, *)) {
       [wkWebView.scrollView setContentInsetAdjustmentBehavior:UIScrollViewContentInsetAdjustmentNever];
     }
@@ -819,17 +819,50 @@ static void * KVOContext = &KVOContext;
     if (restart) {
         [self.webServer stop];
     }
+    
+    if (self.CDV_LOCAL_SERVER == nil) {
+        NSDictionary * settings = self.commandDelegate.settings;
+        //bind to designated hostname or default to localhost
+        NSString *bind = [settings cordovaSettingForKey:@"WKBind"];
+        if(bind == nil){
+            bind = @"localhost";
+        }
 
-    __block NSString* serverUrl = self.CDV_LOCAL_SERVER;
+        //bind to designated port or default to 8080
+        int portNumber = [settings cordovaFloatSettingForKey:@"WKPort" defaultValue:8080];
+
+        //set the local server name
+        self.CDV_LOCAL_SERVER = [NSString stringWithFormat:@"http://%@:%d", bind, portNumber];
+    }
+    
+    NSString *serverUrl = self.CDV_LOCAL_SERVER;
+    
     if (self.internalConnectionsOnly) {
         [self internalConnectionsGetHandlerForPath:path];
     } else {
         [self.webServer addGETHandlerForBasePath:@"/" directoryPath:path indexFilename:((CDVViewController *)self.viewController).startPage cacheAge:0 allowRangeRequests:YES];
     }
+    
+    NSString *codePushUrl =@"(^/var/mobile/|^/Users/)";
+    [self.webServer addHandlerForMethod:@"GET" pathRegex:codePushUrl requestClass:GCDWebServerFileRequest.class asyncProcessBlock:^(__kindof GCDWebServerRequest * _Nonnull request, GCDWebServerCompletionBlock  _Nonnull completionBlock) {
+        
+        NSString *absUrl = [[[request URL] absoluteString] stringByReplacingOccurrencesOfString:serverUrl withString:@""];
+        absUrl = [absUrl stringByRemovingPercentEncoding];
+
+        NSRange range = [absUrl rangeOfString:@"?"];
+        if (range.location != NSNotFound) {
+            absUrl = [absUrl substringToIndex:range.location];
+        }
+
+        GCDWebServerFileResponse *response = [GCDWebServerFileResponse responseWithFile:absUrl];
+        completionBlock(response);
+    }];
+    
     [self.webServer addHandlerForMethod:@"GET" pathRegex:@"_file_/" requestClass:GCDWebServerFileRequest.class asyncProcessBlock:^(__kindof GCDWebServerRequest * _Nonnull request, GCDWebServerCompletionBlock  _Nonnull completionBlock) {
         NSString *urlToRemove = [serverUrl stringByAppendingString:@"/_file_"];
         NSString *absUrl = [[[request URL] absoluteString] stringByReplacingOccurrencesOfString:urlToRemove withString:@""];
-
+        absUrl = [absUrl stringByRemovingPercentEncoding];
+        
         NSRange range = [absUrl rangeOfString:@"?"];
         if (range.location != NSNotFound) {
             absUrl = [absUrl substringToIndex:range.location];
